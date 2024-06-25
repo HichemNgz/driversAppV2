@@ -46,7 +46,7 @@ import {
 } from "@/components/ui/tooltip";
 
 export default function Home() {
-  const [stops, setStops] = useState(null);
+  const [stops, setStops] = useState([]);
   const [report, setReport] = useState(null);
   const [loadingExport, setLoadingExport] = useState(false);
   const [loadingStops, setLoadingStops] = useState(false);
@@ -75,6 +75,7 @@ export default function Home() {
 
   const [selectedStartPoint, setSelectedStartPoint] = useState(null);
   const [selectedEndPoint, setSelectedEndPoint] = useState(null);
+  const [isChecked, setIsChecked] = useState(false);
 
   const [id, setId] = useState("");
   const [date, setDate] = useState(null);
@@ -89,11 +90,11 @@ export default function Home() {
     route_seq: "",
     OrderNum: 1,
     address: {
-      StreetAddress: "",
-      City: "",
-      State: "",
-      Zip: "",
-      Country: "",
+      streetAddress: "",
+      city: "",
+      state: "",
+      zip: "",
+      country: "",
     },
   });
 
@@ -114,11 +115,11 @@ export default function Home() {
         route_seq: "",
         OrderNum: 1,
         address: {
-          StreetAddress: "",
-          City: "",
-          State: "",
-          Zip: "",
-          Country: "",
+          streetAddress: "",
+          city: "",
+          state: "",
+          zip: "",
+          country: "",
         },
       });
     }
@@ -128,6 +129,7 @@ export default function Home() {
     setLoadingStops(true);
     setReport(null);
     setStops(null);
+    setIsChecked(false);
     try {
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/rest/routestops/${id}&${formatISO(
@@ -181,12 +183,12 @@ export default function Home() {
       shipToName: "Start Point",
       route_seq: "-999999999",
       address: {
-        StreetAddress: null,
-        City: null,
-        State: null,
-        Zip: selectedStartPoint,
-        Country: null,
-        CountryAbbreviation: null,
+        streetAddress: null,
+        city: null,
+        state: null,
+        zip: selectedStartPoint,
+        country: null,
+        countryAbbreviation: null,
       },
       orders: [],
       packCount: 0,
@@ -198,12 +200,12 @@ export default function Home() {
       shipToName: "End Point",
       route_seq: "999999999",
       address: {
-        StreetAddress: null,
-        City: null,
-        State: null,
-        Zip: selectedEndPoint,
-        Country: null,
-        CountryAbbreviation: null,
+        streetAddress: null,
+        city: null,
+        state: null,
+        zip: selectedEndPoint,
+        country: null,
+        countryAbbreviation: null,
       },
       orders: [],
       packCount: 0,
@@ -246,11 +248,26 @@ export default function Home() {
     });
   };
 
-  const AddNewStop = () => {
+  const AddNewStop = async () => {
+    const checkZip = async (stop) => {
+      try {
+        const response = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/rest/validatepostalcodeformat?sPostalCode=${stop.address.zip}`
+        );
+        const res = response.data;
+        console.log(res)
+        return res[0].coords === null || res.error ? true : false;
+      } catch (error) {
+        return true;
+      }
+    };
+
+    const unknown = await checkZip(newStop);
+
     setStops((prevStops) => {
       // Add newStop at the beginning
       const updatedStops = [
-        { ...newStop, OrderNum: 1 }, // Assuming OrderNum of newStop is 1
+        { ...newStop, OrderNum: 1, unknown }, // Assuming OrderNum of newStop is 1 and setting unknown based on validation
         ...prevStops.map((stop) => ({
           ...stop,
           OrderNum: stop.OrderNum + 1, // Increment OrderNum of existing stops
@@ -270,11 +287,11 @@ export default function Home() {
       route_seq: "",
       OrderNum: 1,
       address: {
-        StreetAddress: "",
-        City: "",
-        State: "",
-        Zip: "",
-        Country: "",
+        streetAddress: "",
+        city: "",
+        state: "",
+        zip: "",
+        country: "",
       },
     });
   };
@@ -297,6 +314,46 @@ export default function Home() {
       setPlannedStartDate(newDate);
     }
   }, [date]);
+
+  useEffect(() => {
+    const checkZip = async () => {
+      const updatedStopsList = await Promise.all(
+        stops.map(async (stop) => {
+          if (stop.unknown !== undefined) {
+            // If 'unknown' property exists, do nothing
+            return stop;
+          }
+
+          try {
+            const response = await axios.post(
+              `${process.env.NEXT_PUBLIC_API_URL}/rest/validatepostalcodeformat?sPostalCode=${stop.address.zip}`
+            );
+
+            const res = response.data;
+
+            if (res[0].coords === null || res.error) {
+              // Set stop.unknown to true if there's no coordinates or an error
+              return { ...stop, unknown: true };
+            } else {
+              // Set stop.unknown to false if validation is successful
+              return { ...stop, unknown: false };
+            }
+          } catch (error) {
+            // In case of a network or other error, set stop.unknown to true
+            return { ...stop, unknown: true };
+          }
+        })
+      );
+
+      setStops(updatedStopsList);
+      setIsChecked(true);
+    };
+    if (stops && isChecked === false) checkZip();
+  }, [stops, isChecked]);
+
+  useEffect(() => {
+    console.log(stops);
+  }, [stops]);
 
   const convertToJsonString = (object) => {
     return JSON.stringify(object, null, 2);
@@ -425,7 +482,7 @@ export default function Home() {
               data-testid="loader"
             />
           </div>
-        ) : stops ? (
+        ) : stops?.length ? (
           <div>
             <div className="p-2 bg-gray-50">
               <AlertDialog>
@@ -471,13 +528,13 @@ export default function Home() {
                           type="text"
                           placeholder="Street address"
                           className="mt-3 text-black"
-                          value={newStop.address.StreetAddress}
+                          value={newStop.address.streetAddress}
                           onChange={(e) =>
                             setNewStop({
                               ...newStop,
                               address: {
                                 ...newStop.address,
-                                StreetAddress: e.target.value,
+                                streetAddress: e.target.value,
                               },
                             })
                           }
@@ -485,15 +542,15 @@ export default function Home() {
 
                         <Input
                           type="text"
-                          placeholder="City"
+                          placeholder="city"
                           className="mt-3 text-black"
-                          value={newStop.address.City}
+                          value={newStop.address.city}
                           onChange={(e) =>
                             setNewStop({
                               ...newStop,
                               address: {
                                 ...newStop.address,
-                                City: e.target.value,
+                                city: e.target.value,
                               },
                             })
                           }
@@ -501,15 +558,15 @@ export default function Home() {
 
                         <Input
                           type="text"
-                          placeholder="State"
+                          placeholder="state"
                           className="mt-3 text-black"
-                          value={newStop.address.State}
+                          value={newStop.address.state}
                           onChange={(e) =>
                             setNewStop({
                               ...newStop,
                               address: {
                                 ...newStop.address,
-                                State: e.target.value,
+                                state: e.target.value,
                               },
                             })
                           }
@@ -519,13 +576,13 @@ export default function Home() {
                           type="text"
                           placeholder="ZIP*"
                           className="mt-3 text-black"
-                          value={newStop.address.Zip}
+                          value={newStop.address.zip}
                           onChange={(e) =>
                             setNewStop({
                               ...newStop,
                               address: {
                                 ...newStop.address,
-                                Zip: e.target.value,
+                                zip: e.target.value,
                               },
                             })
                           }
@@ -533,15 +590,15 @@ export default function Home() {
 
                         <Input
                           type="text"
-                          placeholder="Country"
+                          placeholder="country"
                           className="mt-3 text-black"
-                          value={newStop.address.Country}
+                          value={newStop.address.country}
                           onChange={(e) =>
                             setNewStop({
                               ...newStop,
                               address: {
                                 ...newStop.address,
-                                Country: e.target.value,
+                                country: e.target.value,
                               },
                             })
                           }
@@ -576,11 +633,11 @@ export default function Home() {
                             route_seq: "",
                             OrderNum: 1,
                             address: {
-                              StreetAddress: "",
-                              City: "",
-                              State: "",
-                              Zip: "",
-                              Country: "",
+                              streetAddress: "",
+                              city: "",
+                              state: "",
+                              zip: "",
+                              country: "",
                             },
                           });
                         }}
@@ -588,7 +645,7 @@ export default function Home() {
                         Cancel
                       </AlertDialogCancel>
                       <AlertDialogAction
-                        disabled={!newStop.address.Zip || !newStop.shipToName}
+                        disabled={!newStop.address.zip || !newStop.shipToName}
                         onClick={AddNewStop}
                       >
                         Add
@@ -613,11 +670,19 @@ export default function Home() {
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className="p-4 mb-2 bg-white rounded-lg flex justify-between gap-4"
+                                className={`p-4 mb-2 bg-white rounded-lg flex justify-between gap-4 ${
+                                  stop.unknown ? "bg-orange-200" : ""
+                                }`}
                               >
                                 <div>
                                   {stop.OrderNum} {"- "}
-                                  {stop.shipToName}
+                                  {stop.shipToName} {"- "}
+                                  {stop.address?.zip}- Unknown:{" "}
+                                  {stop.unknown === true
+                                    ? "Yes"
+                                    : stop.unknown === false
+                                    ? "No"
+                                    : "not defined"}
                                 </div>
 
                                 <Trash2
@@ -671,7 +736,7 @@ export default function Home() {
                 </Button>
               )}
 
-              {stops ? (
+              {stops?.length ? (
                 <Button onClick={downloadJsonFile} className="my-4">
                   Save stops
                 </Button>
@@ -691,7 +756,7 @@ export default function Home() {
             </div>
           ) : report ? (
             <Report report={report} />
-          ) : !report && stops ? (
+          ) : !report && stops?.length ? (
             <div className="flex items-center justify-center h-full">
               No report yet!
             </div>

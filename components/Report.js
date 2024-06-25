@@ -12,10 +12,8 @@ import {
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-
-
 const Report = ({ report }) => {
-  const [reportInfo, setReportInfo] = useState()
+  const [reportInfo, setReportInfo] = useState();
   function formatDuration(minutes) {
     // Calculate hours and minutes
     var hours = Math.floor(minutes / 60);
@@ -41,20 +39,19 @@ const Report = ({ report }) => {
 
   const generatePDF = () => {
     const doc = new jsPDF();
-  
+
     // Add report info
     doc.text(reportInfo, 10, 10);
-  
+
     // Calculate the height of the report info
-     
-  
+
     // Add table below the report info
     doc.autoTable({ html: "#my-table", startY: 45 });
-  
+
     // Save the PDF
     doc.save("document.pdf");
   };
-  
+
   return (
     <div>
       <div className=" pb-8 mb-4 border-b">
@@ -84,22 +81,20 @@ const Report = ({ report }) => {
         </div>
 
         <div className="flex gap-4 mt-4">
-        <a href={report.url} target="_blank">
-          <Button className="bg-green-800 hover:bg-green-800/90">
-            View in map
+          <a href={report.url} target="_blank">
+            <Button className="bg-green-800 hover:bg-green-800/90">
+              View in map
+            </Button>
+          </a>
+
+          <Button
+            onClick={generatePDF}
+            className="bg-blue-700 hover:bg-blue-700/90"
+          >
+            Download
           </Button>
-        </a>
-
-        <Button
-          onClick={generatePDF}
-          className="bg-blue-700 hover:bg-blue-700/90"
-        >
-          Download
-        </Button>
+        </div>
       </div>
-      </div>
-
-      
 
       <Table id="my-table">
         <TableCaption>Route Stops.</TableCaption>
@@ -115,11 +110,10 @@ const Report = ({ report }) => {
         </TableHeader>
         <TableBody>
           {report?.stops?.map((stop, index) => (
-            <TableRow key={index}>
+            <TableRow key={index} className={`${(stop.stopType === "Origin" || stop.stopType === "Destination" ||  stop.stopType === "Break" || stop.stopType.startsWith("RestStop")) ? " bg-green-200 hover:bg-green-200/90  text-black" : ""}`}>
               <TableCell className="font-medium">
-                {stop.location.address.zip} {stop.location.address.city}
-                {", "}
-                {stop.location.address.state}
+                {stop.location.label} {" - "}
+                {stop.location.address.zip}
               </TableCell>
               <TableCell>{stop.legDistance}</TableCell>
               <TableCell>{stop.legTotalKm}</TableCell>
