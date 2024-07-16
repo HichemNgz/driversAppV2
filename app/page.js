@@ -102,6 +102,7 @@ export default function Home() {
   const [plannedStartDate, setPlannedStartDate] = useState(null);
   const [isUploaded, setIsUploaded] = useState(true);
   const [loadingUpload, setLoadingUpload] = useState(false);
+  const [usStops, setUsStops] = useState(null);
 
   useEffect(() => {
     if (id && date) {
@@ -154,6 +155,35 @@ export default function Home() {
     }
   };
 
+  const getUsStops = async () => {
+    setLoadingExport(true);
+    setUsStops(null)
+    try {
+      const res = await axios.get(
+        `${
+          process.env.NEXT_PUBLIC_API_URL
+        }/rest/mileageperstate/${id}${formatISO(date, {
+          representation: "date",
+        })}`
+      );
+      const data = res.data;
+      const usIndex = data.findIndex((item) => item.stCntry === "US");
+
+      if (usIndex !== -1) {
+        // Set the usStops from the first item to the item with stCntry "US" inclusive
+        setUsStops(data.slice(0, usIndex + 1));
+      } else {
+        // If no item with stCntry "US" found, set it to null
+        setUsStops(null);
+      }
+      setLoadingExport(false);
+    } catch (e) {
+      console.log(e);
+      setLoadingExport(false);
+      setUsStops(null)
+    }
+  };
+
   const handleDragEnd = (result) => {
     if (!result.destination) return; // If dropped outside the list, do nothing
 
@@ -169,6 +199,11 @@ export default function Home() {
 
     setStops(stopsWithUpdatedOrder);
   };
+
+  const generateReports = async () => {
+    await generateMap()
+    await getUsStops()
+  }
 
   const generateMap = async () => {
     // Clone the stops array and remove the OrderNum property
@@ -255,7 +290,7 @@ export default function Home() {
           `${process.env.NEXT_PUBLIC_API_URL}/rest/validatepostalcodeformat?sPostalCode=${stop.address.zip}`
         );
         const res = response.data;
-        console.log(res)
+        console.log(res);
         return res[0].coords === null || res.error ? true : false;
       } catch (error) {
         return true;
@@ -709,7 +744,7 @@ export default function Home() {
                     <TooltipTrigger>
                       <Button
                         className="bg-green-800 hover:bg-green-800/90 my-4"
-                        onClick={generateMap}
+                        onClick={generateReports}
                         disabled={
                           loadingExport ||
                           !selectedEndPoint ||
@@ -727,7 +762,7 @@ export default function Home() {
               ) : (
                 <Button
                   className="bg-green-800 hover:bg-green-800/90 my-4"
-                  onClick={generateMap}
+                  onClick={generateReports}
                   disabled={
                     loadingExport || !selectedEndPoint || !selectedStartPoint
                   }
@@ -755,7 +790,7 @@ export default function Home() {
               />
             </div>
           ) : report ? (
-            <Report report={report} />
+            <Report report={report} usReport={usStops}/>
           ) : !report && stops?.length ? (
             <div className="flex items-center justify-center h-full">
               No report yet!

@@ -12,8 +12,9 @@ import {
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-const Report = ({ report }) => {
+const Report = ({ report, usReport }) => {
   const [reportInfo, setReportInfo] = useState();
+  const [usReportInfo, setUsReportInfo] = useState();
   function formatDuration(minutes) {
     // Calculate hours and minutes
     var hours = Math.floor(minutes / 60);
@@ -37,6 +38,20 @@ const Report = ({ report }) => {
     `);
   }, [report]);
 
+  useEffect(() => {
+    if (usReport) {
+      const usReportItem = usReport.find(item => item.stCntry === "US");
+      setUsReportInfo(`
+        Trip Distance: ${usReportItem ? usReportItem.total : "Not found"}
+      `);
+    }
+  }, [usReport]);
+
+  useEffect(() => {
+    console.log(usReport.find(item => item.stCntry === "US")?.total)
+  }, [])
+  
+
   const generatePDF = () => {
     const doc = new jsPDF();
 
@@ -51,6 +66,21 @@ const Report = ({ report }) => {
     // Save the PDF
     doc.save("document.pdf");
   };
+
+  const generateUsPdf = () => {
+    const doc = new jsPDF();
+
+    // Add report info
+    doc.text(usReportInfo, 10, 1);
+
+    // Calculate the height of the report info
+
+    // Add table below the report info
+    doc.autoTable({ html: "#usTable", startY: 15 });
+
+    // Save the PDF
+    doc.save("documentUs.pdf");
+  }
 
   return (
     <div>
@@ -93,6 +123,13 @@ const Report = ({ report }) => {
           >
             Download
           </Button>
+
+          <Button
+            onClick={generateUsPdf}
+            className="bg-blue-700 hover:bg-blue-700/90"
+          >
+            Download Us Report
+          </Button>
         </div>
       </div>
 
@@ -110,7 +147,17 @@ const Report = ({ report }) => {
         </TableHeader>
         <TableBody>
           {report?.stops?.map((stop, index) => (
-            <TableRow key={index} className={`${(stop.stopType === "Origin" || stop.stopType === "Destination" ||  stop.stopType === "Break" || stop.stopType.startsWith("RestStop")) ? " bg-green-200 hover:bg-green-200/90  text-black" : ""}`}>
+            <TableRow
+              key={index}
+              className={`${
+                stop?.stopType === "Origin" ||
+                stop?.stopType === "Destination" ||
+                stop?.stopType === "Break" ||
+                stop?.stopType?.startsWith("RestStop")
+                  ? " bg-green-200 hover:bg-green-200/90  text-black"
+                  : ""
+              }`}
+            >
               <TableCell className="font-medium">
                 {stop.location.label} {" - "}
                 {stop.location.address.zip}
@@ -120,6 +167,23 @@ const Report = ({ report }) => {
               <TableCell>{stop.legCost}</TableCell>
               <TableCell>{stop.legTotalCost}</TableCell>
               <TableCell>{stop.legDriveDuration?.toFixed(2)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <Table className="hidden" id="usTable">
+        <TableHeader className="whitespace-nowrap">
+          <TableRow>
+            <TableHead>State</TableHead>
+            <TableHead>Distance</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {usReport?.map((stop, index) => (
+            <TableRow key={index}>
+              <TableCell className="font-medium">{stop.stCntry}</TableCell>
+              <TableCell>{stop.total}</TableCell>
             </TableRow>
           ))}
         </TableBody>
