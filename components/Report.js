@@ -47,10 +47,7 @@ const Report = ({ report, usReport }) => {
     }
   }, [usReport]);
 
-  useEffect(() => {
-    console.log(usReport.find(item => item.stCntry === "US")?.total)
-  }, [])
-  
+
 
   const generatePDF = () => {
     const doc = new jsPDF();
